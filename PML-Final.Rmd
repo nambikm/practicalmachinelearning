@@ -1,0 +1,119 @@
+---
+title: "Practical Machine Learning - Final Project Report"
+author: "Nambi Madhi"
+date: "November 29, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Machine Learning.
+  As per wikipedia <https://en.wikipedia.org/wiki/Machine_learning>, it is a subfield of computer science that "gives computers the ability to learn without being explicitly programmed". It has evolved from the study of pattern recognition and computational learning theory in artificial intelligence, machine learning explores the study of construction of algorithms that can learn from and make predictions on data.
+  Thus one of the uses of Machine learing involves using data to get insights about the data as well as predict outcome of given data set using a model that has been trained with known  outcome of historical data set.
+  
+### Project
+  The details of the project could be found here <https://www.coursera.org/learn/practical-machine-learning/supplement/PvInj/course-project-instructions-read-first>
+  Basically, we need to predict the manner (classe - variable) how they did the exercise.
+
+## Data
+  The data for this project comes from original source : <http://groupware.les.inf.puc-rio.br/har>.
+  
+  Training data :
+  <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+  
+  Test data:
+  <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+  
+  Using caret package.
+```{r}
+library(caret)
+library(rattle)
+```
+ 
+ Save both training data and testing data files locally. 
+```{r}
+tn_filename <- "pml-training.csv"
+tt_filename <- "pml-testing.csv"
+tn_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+tt_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+if(!file.exists(tn_filename)) {
+  download.file(tn_url,tn_filename)
+}
+if(!file.exists(tt_filename)){
+  download.file(tt_url,tt_filename)
+}
+
+```
+
+## Analyzing and Cleaning Data
+
+Read training and testing data sets and prepare it for analysis.
+```{R}
+training_orig <- read.csv(tn_filename,na.strings = c("NA","","#DIV/0!")) 
+testing_orig <- read.csv(tt_filename,na.strings = c("NA","","#DIV/0!"))
+
+#Remove columns that doesn't contain any data.
+tn_o <- training_orig[,sapply(training_orig,FUN = function(x){all(!is.na(x))})]
+
+#Remove first 7 columns - these are not predictors.
+tn_o <- tn_o[,-(1:7)]
+
+```
+
+Partition tn_o to training and testing data set. This training set will be the one which will be used to train the data set.
+
+```{R}
+set.seed(11111)
+inTrain <- createDataPartition(tn_o$classe, p=0.75, list=FALSE)
+training <- tn_o[inTrain,]
+testing <- tn_o[-inTrain,]
+```
+
+## Training the models.
+
+Initially use without any preprocessing and cross validation, just to get a sense of which fit will be better. If the prediction accuracy is not acceptable, we will use prepossing and cross validation to see if we can improve the prediction accuracy. If we get a prediction that is greater than 95% accuracy, I intend to use that for final prediction to test the 20 test cases.
+
+(Please note I am running the below command with include flag set to false to suppress output, as 
+glm model produces huge output, which I think is not relevant to show, hence I am including those command that is being executed below explicity to show in the html file. )
+
+mf_rpart <- train(classe ~ ., data=training, method="rpart")
+mf_rf <- train(classe ~ ., data=training, method="rf")
+mf_gbm <- train(classe ~ ., data=training, method="gbm")
+
+
+```{R, include = FALSE}
+mf_rpart <- train(classe ~ ., data=training, method="rpart")
+mf_rf <- train(classe ~ ., data=training, method="rf")
+mf_gbm <- train(classe ~ ., data=training, method="gbm")
+
+```
+
+Get the accuracy of the 3 models.
+
+```{R}
+confusionMatrix(testing$classe, predict(mf_rpart,testing))
+confusionMatrix(testing$classe, predict(mf_rf,testing))
+confusionMatrix(testing$classe, predict(mf_gbm,testing))
+```
+
+clearly the random forest method has the highest accuracy 99.41%. In fact, it is so high, doing any other improvements like preprocessing and cross validation would not improve it significantly, So, I will just use this model to predict the actual testing. Since, I already have the other 2 models I will also predict the test results with those models as well, just to see how far they are from the one predicted by rf model.
+
+## Prediction.
+```{R}
+#prediction with rpart
+predict(mf_rpart,testing_orig)
+
+#precition with gbm
+predict(mf_gbm,testing_orig)
+
+#prediction with rf
+predict(mf_rf,testing_orig)
+```
+
+## Summary
+
+As expected, the prediction of rpart is way different from the other two. In fact, the prediction of rf and gbm are same for this test data.
+
+
